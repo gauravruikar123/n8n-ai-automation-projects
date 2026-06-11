@@ -1,0 +1,645 @@
+{
+  "name": "Middleware Morning Task Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "triggerAtHour": 10,
+              "triggerAtMinute": 5
+            },
+            {
+              "daysInterval": 31,
+              "triggerAtHour": 10,
+              "triggerAtMinute": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1152,
+        32
+      ],
+      "id": "d5357b3c-fe8f-4971-b9bc-9e946e569008",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Extract subject and text from input\nconst subject = $input.item.json.Subject || '';\nconst text = $input.item.json.snippet || '';\n\n// Determine API type from subject\nlet apiType = '';\nlet apiDisplayName = '';\n\nif (subject.includes('BFL_LEAD_PUSH_STATUS')) {\n  apiType = 'BFL';\n  apiDisplayName = 'BFL Lead Push API';\n} else if (subject.includes('BHFL_BULK_LEAD_PUSH_STATUS')) {\n  apiType = 'BHFL_BULK';\n  apiDisplayName = 'BHFL Bulk Lead Push API';\n} else if (subject.includes('BHFL_LIVE_LEAD_PUSH_STATUS')) {\n  apiType = 'BHFL_LIVE';\n  apiDisplayName = 'BHFL Live Lead Push API';\n} else if (subject.includes('BHFL_IVR_LEAD_PUSH_STATUS')) {\n  apiType = 'BHFL_IVR';\n  apiDisplayName = 'BHFL IVR Lead Push API';\n} else if (subject.includes('BFDL_LEAD_PUSH_STATUS')) {\n  apiType = 'BFDL';\n  apiDisplayName = 'BFDL Lead Push API';\n} else if (subject.includes('CC_LEAD_PUSH_STATUS')) {\n  apiType = 'CC';\n  apiDisplayName = 'CC Lead Push API';\n} else {\n  // Skip items that don't match any known API type\n  return null;\n}\n\n// Extract count from text using regex\nconst countMatch = text.match(/Successful Leads\\s+(\\d+)/i);\nconst count = countMatch ? countMatch[1] : '0';\n\n// Get current date and time\nconst currentDate = new Date();\nconst dateStr = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD\nconst timeStr = currentDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });\n\n// Extract email headers\nconst from = $input.item.json.From || $input.item.json.from || '';\nconst to = $input.item.json.To || $input.item.json.to || '';\nconst receivedDate = $input.item.json.ReceivedDate || $input.item.json.date || $input.item.json.internalDate || '';\n\n// Format timestamp\nlet timestamp = '';\nif (receivedDate) {\n  const ts = parseInt(receivedDate);\n  timestamp = new Date(ts).toISOString();\n} else {\n  timestamp = currentDate.toISOString();\n}\n\n// Format output message for Hangout\nlet formattedMessage = '';\nswitch(apiType) {\n  case 'BFL':\n    formattedMessage = 'BFL Lead push API is working fine.\\nPlease find the Successful Lead Push count till 10.00 AM : ' + count;\n    break;\n  case 'BHFL_BULK':\n    formattedMessage = 'BHFL Bulk Lead push API is working fine.\\nPlease find the Successful Lead Push count till 10.00 AM: ' + count;\n    break;\n  case 'BHFL_LIVE':\n    formattedMessage = 'BHFL Live Lead push API is working fine.\\nPlease find the Successful Lead Push count till 10.00 AM : ' + count;\n    break;\n  case 'BHFL_IVR':\n    formattedMessage = 'BHFL IVR API lead push is working fine.\\nPlease find the Successful Lead Push count till 10.00 AM : ' + count;\n    break;\n  case 'BFDL':\n    formattedMessage = 'BFDL lead push API is working fine.\\nPlease find the Successful Lead Push count till 10.00 AM : ' + count;\n    break;\n  case 'CC':\n    formattedMessage = 'CC lead push API is working fine.\\nPlease find the Successful Lead Push count till 10.00 AM : ' + count;\n    break;\n}\n\n// Return data for both Hangout AND Excel/Google Sheets\nreturn {\n  // For Hangout message\n  apiType: apiType,\n  count: count,\n  formattedMessage: formattedMessage,\n  subject: subject,\n  \n  // For Excel/Google Sheets (headers)\n  sheetData: {\n    date: dateStr,\n    time: timeStr,\n    timestamp: timestamp,\n    apiName: apiDisplayName,\n    apiType: apiType,\n    leadCount: parseInt(count),\n    subject: subject,\n    from: from,\n    to: to,\n    status: 'Success',\n    executionTime: timeStr\n  }\n};"
+      },
+      "id": "9283d470-655a-40f2-aac2-3fa47bff8e1e",
+      "name": "Parse and Format Counts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.Subject }}",
+              "rightValue": "LEAD_PUSH_STATUS",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              },
+              "id": "3925d860-d87c-4a54-8aed-64497f9191f5"
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "1b7e1387-d253-444f-8257-94eb3b9a44b3",
+      "name": "Filter Lead Push Status",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "apiType"
+            },
+            {
+              "fieldToAggregate": "count"
+            },
+            {
+              "fieldToAggregate": "formattedMessage"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "122b8e20-893d-4cc3-b188-c0da145deeaa",
+      "name": "Aggregate All Counts",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all formatted messages from aggregated data\nconst messages = $input.first().json.formattedMessage;\n\n// Join all messages with double newline\nconst finalMessage = messages.join('\\n\\n');\n\nreturn { message: finalMessage };"
+      },
+      "id": "03a11666-24f7-4e9a-b620-3952ccf76e2b",
+      "name": "Format Final Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chat.googleapis.com/v1/spaces/AAAAMz8v7X8/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=18i6Q5VtxWN1fDheXv0L9o6MxwfPqf7Z67-5F3d75GY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"text\": $json.message } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1120,
+        0
+      ],
+      "id": "5af0fcb0-c609-47b1-b39d-5d37e94afe56",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.threadId }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -272,
+        32
+      ],
+      "id": "0f795272-c03a-433f-bbab-bd908d6f5ae2",
+      "name": "Get a message",
+      "webhookId": "4c3e8e3f-39e2-4746-9aaf-a62fe315ec34",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "E1RRn0Vn8mkhHZZy",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6817216e-01e3-47a1-8a0e-00e16e751caf",
+              "name": "Subject",
+              "value": "={{ $json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "62e96e79-7276-42ee-b78e-af1d70030473",
+              "name": "snippet",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "788c400b-cf6a-4e7a-8e53-e9f67c35b1be",
+      "name": "Extract Subject Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "e5b4cf0f-5185-441e-a1a6-4206ff8a55c8",
+              "leftValue": "={{ $json.Subject }}",
+              "rightValue": "(Prod) Disk Usage Report",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        240
+      ],
+      "id": "145d772c-a7cc-4186-860a-7ca4b0058c6c",
+      "name": "Filter Disk Space Count"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6dfc4393-005a-40f1-9fe7-8368268406fa",
+              "name": "Subject",
+              "value": "={{ $json.Subject }}",
+              "type": "string"
+            },
+            {
+              "id": "eae86037-e3ec-40c3-93b3-4eeaed4d8dff",
+              "name": "snippet",
+              "value": "={{ $json.snippet }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        240
+      ],
+      "id": "74052844-5560-44b6-9b9b-85bef01d2d19",
+      "name": "Edit Fields",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const subject = $input.item.json.Subject;\nconst snippet = $input.item.json.snippet;\n\n// Extract IP address from subject\nconst ipMatch = subject.match(/(\\d+\\.\\d+\\.\\d+\\.\\d+)/);\nconst ipAddress = ipMatch ? ipMatch[1] : \"\";\n\n// Extract numbers from table\nconst tableMatch = snippet.match(/(\\d+\\.?\\d*[GT])\\s*\\|?\\s*(\\d+\\.?\\d*[GT])\\s*\\|?\\s*(\\d+)%/);\n\nlet usedSpace = \"N/A\";\nlet availableSpace = \"N/A\";\nlet usedPercent = 0;\nlet totalSpace = \"N/A\";\n\nif (tableMatch) {\n  usedSpace = tableMatch[1];\n  availableSpace = tableMatch[2];\n  usedPercent = parseInt(tableMatch[3]);\n  \n  const usedNum = parseFloat(usedSpace);\n  const availNum = parseFloat(availableSpace);\n  const unit = usedSpace.match(/[GT]/)[0];\n  totalSpace = (usedNum + availNum).toFixed(1) + unit;\n}\n\n// Status\nlet status = \"Healthy\";\nlet emoji = \"🟢\";\nif (usedPercent >= 85) {\n  status = \"Critical\";\n  emoji = \"🔴\";\n} else if (usedPercent >= 70) {\n  status = \"Warning\";\n  emoji = \"🟡\";\n}\n\n// Server name based on email subject\nlet serverName = \"Unknown\";\nif (subject.includes(\"BFL Portal\")) serverName = \"BFL-PROD/CRM\";\nelse if (subject.includes(\"BFL Middleware\")) serverName = \"BFL Production\";\nelse if (subject.includes(\"BHFL BULK\")) serverName = \"BHFL BULK Portal\";\nelse if (subject.includes(\"BHFL Rechurn\")) serverName = \"BHFL Rechurn\";\nelse if (subject.includes(\"BFDL\")) serverName = \"BFDL\";\nelse if (subject.includes(\"Credit Card\")) serverName = \"Credit Card\";\n\n// Add IP to server name\nconst displayName = ipAddress ? `${serverName} (${ipAddress})` : serverName;\n\nreturn {\n  serverName: displayName,\n  usedSpace: usedSpace,\n  availableSpace: availableSpace,\n  totalSpace: totalSpace,\n  usedPercent: usedPercent,\n  status: status,\n  emoji: emoji\n};"
+      },
+      "id": "c89ab844-1c92-4715-a1e5-75515942ace1",
+      "name": "Parse and Format Counts1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nlet finalMessage = \"DISK SPACE STATUS REPORT\\n\\n\";\nlet criticalServers = [];\nlet warningServers = [];\n\nfor (let i = 0; i < allItems.length; i++) {\n  const data = allItems[i].json;\n  \n  if (!data.serverName) continue;\n  \n  // Fix server names\n  let serverName = data.serverName;\n  if (serverName === \"BFDL Credit Card\") serverName = \"Credit Card\";\n  if (serverName === \"BFL ALL Production\") serverName = \"BFL Production\";\n  \n  // Calculate total and available from used and percent\n  let usedSpace = data.usedSpace || \"N/A\";\n  let usedPercent = data.usedPercent || 0;\n  let totalSpace = data.totalSpace || \"N/A\";\n  let availableSpace = data.availableSpace || \"N/A\";\n  \n  if (usedSpace !== \"N/A\" && totalSpace === \"N/A\" && usedPercent > 0) {\n    const usedNum = parseFloat(usedSpace);\n    const unit = usedSpace.match(/[GT]/) ? usedSpace.slice(-1) : \"G\";\n    const totalNum = (usedNum * 100) / usedPercent;\n    const availableNum = totalNum - usedNum;\n    totalSpace = totalNum.toFixed(1) + unit;\n    availableSpace = availableNum.toFixed(1) + unit;\n  }\n  \n  const emoji = data.emoji || (data.status === \"Warning\" ? \"🟡\" : \"🟢\");\n  const status = data.status || \"Healthy\";\n  \n  finalMessage = finalMessage + `${emoji} *${serverName}*: ${usedSpace} used, ${availableSpace} available (Total: ${totalSpace}) - ${usedPercent}% - ${status}\\n`;\n  \n  if (status === \"Critical\") {\n    criticalServers.push(serverName + \" (\" + usedPercent + \"%)\");\n  } else if (status === \"Warning\") {\n    warningServers.push(serverName + \" (\" + usedPercent + \"%)\");\n  }\n}\n\nif (criticalServers.length > 0) {\n  finalMessage = finalMessage + `\\n🔴 CRITICAL: ${criticalServers.join(\", \")} - Immediate action required!`;\n} else if (warningServers.length > 0) {\n  finalMessage = finalMessage + `\\n⚠️ WARNING: ${warningServers.join(\", \")} - Monitor closely`;\n}\n\nreturn { message: finalMessage };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        240
+      ],
+      "id": "4cf3156d-0a10-4cbe-a827-ae2f806ed542",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chat.googleapis.com/v1/spaces/AAAAMz8v7X8/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=18i6Q5VtxWN1fDheXv0L9o6MxwfPqf7Z67-5F3d75GY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"text\": $json.message } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        240
+      ],
+      "id": "b6f55e5e-cc44-49c4-8546-da9e8bdbcc58",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 1,
+        "filters": {
+          "q": "Gaurav_Datacheck",
+          "receivedAfter": "={{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}",
+          "sender": " GIGA_SynoNAS_214.20"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -448,
+        448
+      ],
+      "id": "71fc7cd3-5fa5-4e7e-9946-1a840bb18e8d",
+      "name": "Get many messages",
+      "webhookId": "656de48a-8a16-460b-9f17-06b0bbd5b31a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "E1RRn0Vn8mkhHZZy",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -176,
+        448
+      ],
+      "id": "e813b7ec-bc63-4d81-9a93-bad23f644c22",
+      "name": "Get a message1",
+      "webhookId": "050eead6-460d-4a95-adca-f30c2fbbde54",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "E1RRn0Vn8mkhHZZy",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const emailText = $json.text || $json.html || \"\";\n\n// Parse the table - look for lines with | and extract data\nconst lines = emailText.split('\\n');\nconst backupData = [];\nlet currentServer = \"\";\nlet currentFiles = [];\n\n// Extract dynamic date from email\nlet reportDate = \"\";\n\n// Try to get date from $json.date field first\nif ($json.date) {\n  // Parse date like \"Date: Mon, 08 Jun 2026 09:15:05 +0530\"\n  const dateMatch = $json.date.match(/\\d{2} (?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \\d{4}/);\n  if (dateMatch) {\n    const parsedDate = new Date(dateMatch[0]);\n    if (!isNaN(parsedDate)) {\n      reportDate = parsedDate.toISOString().split('T')[0]; // YYYY-MM-DD\n    }\n  }\n}\n\n// If not found, try to extract from report body (e.g., \"BACKUP SIZE REPORT FOR DATE: 080626\")\nif (!reportDate) {\n  const dateInReport = emailText.match(/DATE:\\s*(\\d{2})(\\d{2})(\\d{2})/);\n  if (dateInReport) {\n    const day = dateInReport[1];\n    const month = dateInReport[2];\n    const year = `20${dateInReport[3]}`;\n    reportDate = `${year}-${month}-${day}`;\n  }\n}\n\n// Fallback to current date if nothing found\nif (!reportDate) {\n  const today = new Date();\n  reportDate = today.toISOString().split('T')[0];\n}\n\nfor (let i = 0; i < lines.length; i++) {\n  const line = lines[i];\n  \n  // Look for table rows (have | but not +---+)\n  if (line.includes('|') && !line.includes('+---')) {\n    \n    // Split by pipe and clean\n    const parts = line.split('|').map(p => p.trim());\n    \n    const parentFolder = parts[1] || \"\";\n    const fileName = parts[3] || \"\";\n    const fileSize = parts[4] || \"\";\n    \n    // Skip header row\n    if (fileName === \"FILE NAME\") continue;\n    if (fileName === \"\") continue;\n    if (fileName === \"DATE FOLDER\") continue;\n    \n    // If we have a new server\n    if (parentFolder && parentFolder !== \"\" && parentFolder !== \"PARENT FOLDER\") {\n      // Save previous server\n      if (currentServer && currentFiles.length > 0) {\n        backupData.push({ ip: currentServer, files: [...currentFiles] });\n        currentFiles = [];\n      }\n      currentServer = parentFolder;\n    }\n    \n    // Add file if we have a valid name\n    if (fileName && fileName !== \"\") {\n      currentFiles.push(`${fileName}|${fileSize}`);\n    }\n  }\n}\n\n// Save last server\nif (currentServer && currentFiles.length > 0) {\n  backupData.push({ ip: currentServer, files: [...currentFiles] });\n}\n\n// Build message with dynamic date\nlet message = \"NAS BACKUP REPORT\\n\";\nmessage += \"Date: \" + reportDate + \"\\n\\n\";  // ← Dynamic date, not hardcoded!\n\nfor (let s = 0; s < backupData.length; s++) {\n  const server = backupData[s];\n  message += \"========================================\\n\";\n  message += \"Server: \" + server.ip + \"\\n\";\n  message += \"----------------------------------------\\n\";\n  \n  for (let f = 0; f < server.files.length; f++) {\n    const file = server.files[f];\n    const [fileName, fileSize] = file.split(\"|\");\n    message += \"   File: \" + fileName + \" | Size: \" + fileSize + \"\\n\";\n  }\n  message += \"\\n\";\n}\n\n// Debug: Log count\nmessage += `\\nTotal servers: ${backupData.length}\\n`;\n\nreturn { message: message };"
+      },
+      "id": "1f294c76-786c-4c31-9084-bda1ef51dc89",
+      "name": "Parse and Format Counts2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        64,
+        448
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://chat.googleapis.com/v1/spaces/AAAAMz8v7X8/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=18i6Q5VtxWN1fDheXv0L9o6MxwfPqf7Z67-5F3d75GY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"text\": $json.message } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        320,
+        448
+      ],
+      "id": "628a4661-0f29-44e4-b954-5940aeedd8dc",
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "filters": {
+          "labelIds": [
+            "UNREAD",
+            "Label_302413660624687150"
+          ],
+          "receivedAfter": "={{ new Date(new Date().setHours(0,0,0,0)).toISOString() }}",
+          "sender": "MIS BFSD"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -784,
+        32
+      ],
+      "id": "9bf52c7f-2012-41ff-bdec-c14063aa70f5",
+      "name": "Gmail All Mails",
+      "webhookId": "e146d6ba-8bdd-4c45-a443-d11b2dc6a161",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "E1RRn0Vn8mkhHZZy",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Gmail All Mails",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get many messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Lead Push Status": {
+      "main": [
+        [
+          {
+            "node": "Extract Subject Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Format Counts": {
+      "main": [
+        [
+          {
+            "node": "Aggregate All Counts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Counts": {
+      "main": [
+        [
+          {
+            "node": "Format Final Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Final Message": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message": {
+      "main": [
+        [
+          {
+            "node": "Filter Disk Space Count",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter Lead Push Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Subject Data": {
+      "main": [
+        [
+          {
+            "node": "Parse and Format Counts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Disk Space Count": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Parse and Format Counts1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Format Counts1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many messages": {
+      "main": [
+        [
+          {
+            "node": "Get a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message1": {
+      "main": [
+        [
+          {
+            "node": "Parse and Format Counts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse and Format Counts2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail All Mails": {
+      "main": [
+        [
+          {
+            "node": "Get a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "da7400e0-6d42-48a4-b6a7-cabb0213e1d9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "377f429703b5dd26cc8b52866585ae16e59f360c96603058b643e95d9601e784"
+  },
+  "nodeGroups": [],
+  "id": "FwlEdkgGFPCmsJpG",
+  "tags": [
+    {
+      "updatedAt": "2026-06-04T06:50:30.888Z",
+      "createdAt": "2026-06-04T06:50:30.888Z",
+      "id": "8BjpcXPE8OhXaN0f",
+      "name": "HR Automation"
+    },
+    {
+      "updatedAt": "2026-06-04T06:50:30.811Z",
+      "createdAt": "2026-06-04T06:50:30.811Z",
+      "id": "R7sIQze6asVTyYvv",
+      "name": "Shift Roster"
+    }
+  ]
+}
